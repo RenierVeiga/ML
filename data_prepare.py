@@ -5,12 +5,12 @@ from os import path
 from sklearn.preprocessing import MinMaxScaler
 
 
-symbol = "EOD/HD"
+dir = "EOD/"
 authtoken = "dqXw1Ydw-nzAN2nSTMaP"
 
 
-def load_data(start_date=""):
-    file = symbol + ".csv"
+def load_data(symbol, start_date=""):
+    file = dir + symbol + ".csv"
     last_date = start_date
     if path.exists(file):
         df = pd.read_csv(file, sep="\t")
@@ -27,15 +27,14 @@ def load_data(start_date=""):
     return df, last_date
 
 
-df, last_date = load_data()
-
-
 def do_delta(data):
     diff = []
     end = len(data)
     delta = data[0]
     for i in range(1, end):
         diff.append(data[i] - data[i - 1])
+    print("Diff series: ")
+    print(diff[0])
     return diff, delta
 
 
@@ -45,49 +44,47 @@ def undo_delta(data, delta):
     diff.append(delta)
     for i in range(1, end):
         diff.append(data[i] + diff[i - 1])
+    print("Undo Diff Series:")
+    print("Is Delta " + delta[0].__str__() + " == UnDiff " + diff[0][0].__str__())
     return diff
 
 
+def norm(data):
+    scalar = MinMaxScaler()
+    normalized = scalar.fit_transform(data)
+    print("Normalized series: ")
+    print(normalized[0])
+    return scalar, normalized
+
+
+def unnorm(scalar, normalized):
+    unnorm = scalar.inverse_transform(normalized)
+    print("UnNormalized series: ")
+    print(unnorm[0])
+    return unnorm
+
+
+df, last_date = load_data("FB")
 print(df.head())
 features_considered = ['Adj_Close', 'Adj_Volume']
 features = df[features_considered]
 dataset = features.values
 diff, delta = do_delta(dataset)
-
-print("Diff series: ")
-print(diff[0])
-
-scaler = MinMaxScaler()
-normalized = scaler.fit_transform(diff)
-
-print("Normalized series: ")
-print(normalized[0])
-
-unnorm = scaler.inverse_transform(normalized)
-print("UnNormalized series: ")
-print(unnorm[0])
-
+scalar, norm = norm(diff)
+unnorm = unnorm(scalar, norm)
 undif = undo_delta(unnorm, delta)
-
-print("Verify Undo Delta:")
-print("Is Delta " + delta[0].__str__() + " == UnDiff " + undif[0][0].__str__())
 
 
 # Prepare data for model
-def training_val_data(dataset, target, offset=0):
+def subsample_data(dataset, label_index, window_size, future_target):
     data = []
     labels = []
+    target = dataset[:, label_index]
+    start_index = window_size
+    end_index = len(dataset) - future_target
 
-    start_index = offset
-    end_index = len(dataset) - (window_size + future_target)
-
-    for i in range(start_index, end_index, 1):
-        j = i + window_size
-        temp_data = dataset[i:j]
-        if len(temp_data) == window_size:
-            temp_label = target[j:j + future_target]
-            if len(temp_label) == future_target:
-                data.append(temp_data)
-                labels.append(temp_label)
+    for i in range(start_index, end_index):
+        data.append(dataset[i - window_size:i])
+        labels.append(target[i:i + future_target])
 
     return np.array(data), np.array(labels)
