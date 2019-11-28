@@ -1,30 +1,5 @@
-import quandl
-import pandas as pd
 import numpy as np
-from os import path
 from sklearn.preprocessing import MinMaxScaler
-
-
-dir = "EOD/"
-authtoken = "dqXw1Ydw-nzAN2nSTMaP"
-
-
-def load_data(symbol, start_date=""):
-    file = dir + symbol + ".csv"
-    last_date = start_date
-    if path.exists(file):
-        df = pd.read_csv(file, sep="\t")
-        last_date = pd.Categorical(df["Date"]).get_values()[-1:][0]
-
-    if start_date != "":
-        df.append(quandl.get(symbol, authtoken=authtoken, start_date=start_date), sort=False)
-        df.to_csv(file, sep="\t")
-    else:
-        df = quandl.get(symbol, authtoken=authtoken)
-        df.to_csv(file, sep="\t")
-
-    print(last_date)
-    return df, last_date
 
 
 def do_delta(data):
@@ -64,17 +39,6 @@ def unnorm(scalar, normalized):
     return unnorm
 
 
-df, last_date = load_data("FB")
-print(df.head())
-features_considered = ['Adj_Close', 'Adj_Volume']
-features = df[features_considered]
-dataset = features.values
-diff, delta = do_delta(dataset)
-scalar, norm = norm(diff)
-unnorm = unnorm(scalar, norm)
-undif = undo_delta(unnorm, delta)
-
-
 # Prepare data for model
 def subsample_data(dataset, label_index, window_size, future_target):
     data = []
@@ -88,3 +52,12 @@ def subsample_data(dataset, label_index, window_size, future_target):
         labels.append(target[i:i + future_target])
 
     return np.array(data), np.array(labels)
+
+
+# features_considered = ['Adj_Close', 'Adj_Volume']
+# features = df[features_considered]
+# dataset = features.values
+# diff, delta = do_delta(dataset)
+# scalar, norm = norm(diff)
+# unnorm = unnorm(scalar, norm)
+# undif = undo_delta(unnorm, delta)
